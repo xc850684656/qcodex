@@ -1,27 +1,41 @@
 #include "mtranscode.h"
+#include "mtranscodeinternal.h"
 
-#include <libavutil/avutil.h>
-
-struct MTranscodeData
+extern "C" {
+static void progress_init(void* fp, int from, int to, int step)
 {
-    ProgInitFunc initFunc;
-    ProgStepFunc stepFunc;
-    ProgFinishFunc finishFunc;
-};
+    ProgInitFunc* p = (ProgInitFunc*)fp;
+    (*p)(from, to, step);
+}
+}
 
 MTranscode::MTranscode()
 {
-    m_data = new MTranscodeData();
+    m_context = createInternalContext();
 }
 
 MTranscode::~MTranscode()
 {
-    delete m_data;
+    releaseInternalContext(&m_context);
 }
 
 void MTranscode::setProgressHandler(ProgInitFunc initFunc, ProgStepFunc stepFunc, ProgFinishFunc finishFunc)
 {
-    m_data->initFunc = initFunc;
-    m_data->stepFunc = stepFunc;
-    m_data->finishFunc = finishFunc;
+    m_initFunc = initFunc;
+    m_stepFunc = stepFunc;
+    m_finishFunc = finishFunc;
+
+    TranscodeCbf cbf = {0};
+    cbf.progress_init = progress_init;
+    setTranscodeCbf(m_context, &cbf);
+}
+
+void MTranscode::run()
+{
+    doTranscode(m_context);
+}
+
+void MTranscode::cancel()
+{
+
 }

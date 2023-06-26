@@ -1,6 +1,7 @@
 #ifndef MTRANSCODE_H
 #define MTRANSCODE_H
-#include "moption.h"
+#include "mTranscode_global.h"
+#include "../option/moption.h"
 
 #include <functional>
 
@@ -8,12 +9,14 @@ typedef std::function<void(int,int,int)> ProgInitFunc; // 进度描述（int-最
 typedef std::function<void(void)> ProgStepFunc; // 进度推进一个步进单位
 typedef std::function<void(int)> ProgFinishFunc; // 完成事件(int-退出码id)
 
-struct MTranscodeData;
 class MTRANSCODE_EXPORT MTranscode
 {
 private:
     MOption m_option;
-    MTranscodeData* m_data = nullptr;
+    void* m_context = nullptr;
+    ProgInitFunc m_initFunc;
+    ProgStepFunc m_stepFunc;
+    ProgFinishFunc m_finishFunc;
 public:
     MTranscode();
     ~MTranscode();
@@ -26,8 +29,10 @@ public:
     void setProgressHandler(ProgInitFunc initFunc, ProgStepFunc stepFunc, ProgFinishFunc finishFunc);
 
     // 执行转码
+    void run();
 
     // 中断/退出
+    void cancel();
 };
 
 #endif // MTRANSCODE_H
