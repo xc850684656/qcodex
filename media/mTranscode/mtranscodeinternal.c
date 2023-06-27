@@ -402,6 +402,58 @@ typedef struct TranscodeData {
     int         nb_output_files;
 } TranscodeData;
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void ffmpeg_cleanup(TranscodeData* td)
+{
+    int i;
+
+    if (do_benchmark) {
+        int maxrss = getmaxrss() / 1024;
+        av_log(NULL, AV_LOG_INFO, "bench: maxrss=%ikB\n", maxrss);
+    }
+
+    for (i = 0; i < nb_filtergraphs; i++)
+        fg_free(&filtergraphs[i]);
+    av_freep(&filtergraphs);
+
+    /* close files */
+    for (i = 0; i < nb_output_files; i++)
+        of_close(&output_files[i]);
+
+    for (i = 0; i < nb_input_files; i++)
+        ifile_close(&input_files[i]);
+
+    if (vstats_file) {
+        if (fclose(vstats_file))
+            av_log(NULL, AV_LOG_ERROR,
+                   "Error closing vstats file, loss of information possible: %s\n",
+                   av_err2str(AVERROR(errno)));
+    }
+    av_freep(&vstats_filename);
+    of_enc_stats_close();
+
+    hw_device_free_all();
+
+    av_freep(&filter_nbthreads);
+
+    av_freep(&input_files);
+    av_freep(&output_files);
+
+    uninit_opts();
+
+    avformat_network_deinit();
+
+    if (received_sigterm) {
+        av_log(NULL, AV_LOG_INFO, "Exiting normally, received signal %d.\n",
+               (int) received_sigterm);
+    } else if (ret && atomic_load(&transcode_init_done)) {
+        av_log(NULL, AV_LOG_INFO, "Conversion failed!\n");
+    }
+    term_exit();
+    ffmpeg_exited = 1;
+}
+
 void* createInternalContext()
 {
     return calloc(1, sizeof(TranscodeData));
@@ -415,7 +467,7 @@ void releaseInternalContext(void** cp)
     *cp = NULL;
 }
 
-void doTranscode(void* context)
+int doTranscode(void* context)
 {
     TranscodeData* td = (TranscodeData *)context;
 
@@ -427,6 +479,35 @@ void doTranscode(void* context)
     avdevice_register_all();
 #endif
     avformat_network_init();
+
+    if (td->nb_output_files <= 0 && td->nb_input_files == 0) {
+        //show_usage();
+        //av_log(NULL, AV_LOG_WARNING, "Use -h to get full help or, even better, run 'man %s'\n", program_name);
+        exit_program(1);
+    }
+
+    if (nb_output_files <= 0) {
+        av_log(NULL, AV_LOG_FATAL, "At least one output file must be specified\n");
+        exit_program(1);
+    }
+
+    current_time = ti = get_benchmark_time_stamps();
+    ret = transcode(&err_rate_exceeded);
+    if (ret >= 0 && do_benchmark) {
+        int64_t utime, stime, rtime;
+        current_time = get_benchmark_time_stamps();
+        utime = current_time.user_usec - ti.user_usec;
+        stime = current_time.sys_usec  - ti.sys_usec;
+        rtime = current_time.real_usec - ti.real_usec;
+        av_log(NULL, AV_LOG_INFO,
+               "bench: utime=%0.3fs stime=%0.3fs rtime=%0.3fs\n",
+               utime / 1000000.0, stime / 1000000.0, rtime / 1000000.0);
+    }
+
+    ret = received_nb_signals ? 255 :
+              err_rate_exceeded   ?  69 : ret;
+
+    exit_program(ret);
 }
 
 void cancelTranscode(void* context)
@@ -435,8 +516,8 @@ void cancelTranscode(void* context)
     td->is_interrupted = 1;
 }
 
-void setTranscodeCbf(void* context, const TranscodeCbf* cbf)
+TranscodeCbf* getTranscodeCbf(void* context)
 {
     TranscodeData* td = (TranscodeData *)context;
-    td->cbf = *cbf;
+    return &td->cbf;
 }

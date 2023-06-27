@@ -1,10 +1,16 @@
 #ifndef MOPTLOG_H
 #define MOPTLOG_H
-#include <string>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct MOptLog
 {
     int level = 0;
-    std::string filepath;
 };
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // MOPTLOG_H

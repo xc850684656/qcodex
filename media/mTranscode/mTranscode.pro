@@ -24,6 +24,7 @@ HEADERS += \
     ../option/moptlog.h \
     mTranscode_global.h \
     mtranscode.h \
+    mtranscode_error.h \
     mtranscodeinternal.h
 
 # Default rules for deployment.

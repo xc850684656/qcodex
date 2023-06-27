@@ -12,7 +12,6 @@ typedef std::function<void(int)> ProgFinishFunc; // 完成事件(int-退出码id
 class MTRANSCODE_EXPORT MTranscode
 {
 private:
-    MOption m_option;
     void* m_context = nullptr;
     ProgInitFunc m_initFunc;
     ProgStepFunc m_stepFunc;
@@ -22,8 +21,7 @@ public:
     ~MTranscode();
 
     // 参数配置
-    MOption& option() { return m_option; }
-    const MOption& option() const { return m_option; }
+    MOption* option();
 
     // 事件回调
     void setProgressHandler(ProgInitFunc initFunc, ProgStepFunc stepFunc, ProgFinishFunc finishFunc);
