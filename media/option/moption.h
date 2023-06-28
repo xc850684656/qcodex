@@ -1,17 +1,12 @@
 #ifndef MOPTION_H
 #define MOPTION_H
-#include "moptlog.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "moption_global.h"
+#include "moption_log.h"
 
 struct MOption
 {
-    MOptLog log;
+    MOptionGlobal global;
+    MOptionLog log;
 };
 
-#ifdef __cplusplus
-}
-#endif
 #endif // MOPTION_H
